@@ -7,13 +7,8 @@ import * as check from './check';
 export default function makeFirebaseDriver(firebaseUrl) {
   check.isString(firebaseUrl, 'Firebase URL is required.');
 
-  const firebase = new Firebase(firebaseUrl);
-  const firebaseRef = firebase.toString();
-  const firebaseRoot = firebase.root().toString().replace(/\/$/, '');
-
-
-  firebase.child('iannnnn').set({ no: 'zzzzzzzzzz' });
-
+  const firebaseRef = firebaseUrl;
+  const firebaseRoot = (new Firebase(firebaseUrl)).root().toString().replace(/\/$/, '');
 
   function getFirebase(ref) {
     if (check.isString(ref)) return new Firebase(firebaseRoot + ref);
@@ -28,26 +23,49 @@ export default function makeFirebaseDriver(firebaseUrl) {
   }
 
 
+  function isolateSink(action$, scope) {
+
+  }
+
+  function isolateSource(response$$, scope) {
+    const isolatedResponse$$ = response$$.filter(res$ =>
+      Array.isArray(res$.request._namespace) &&
+      res$.request._namespace.indexOf(scope) !== -1
+    )
+  }
+
+
   return function firebaseDriver(action$) {
 
-    console.log('wtf is this garbage');
-    console.log(action$);
+    const response$$ = action$
+      .subscribe(actionConfig => {
+        if (!actionConfig) return;
 
-    action$
-      .map(function() {
-        console.log('action$', args);
+        var action, args, ref;
+        if (Array.isArray(actionConfig)) {
+          [action, ...args] = actionConfig;
+        }
+        else {
+          ref = actionConfig.ref;
+          [action, ...args] = actionConfig.action;
+        }
         const thisFirebase = getFirebase(ref);
-        //const [action, ...args] = actionAndArgs;
-        thisFirebase[action].apply(thisFirebase, args);
-      })
-      .replay(null, 1);
+        console.log('action$', ref, action + '()', ...args);
 
-    return {
+        if (['set'].indexOf(action) >= 0) {
+          console.log('action', action, 'is special!!!!');
+        }
+
+        thisFirebase[action].apply(thisFirebase, args);
+      });
+
+    Object.assign(response$$, { isolateSink, isolateSource }, {
 
       onAuth: function() {
+        const thisFirebase = getFirebase();
         return Observable.fromEventPattern(
-          h => firebase.onAuth(h),
-          h => firebase.offAuth(h)
+          h => thisFirebase.onAuth(h),
+          h => thisFirebase.offAuth(h)
         );
       },
 
@@ -66,6 +84,8 @@ export default function makeFirebaseDriver(firebaseUrl) {
         );
       }
 
-    };
+    });
+
+    return response$$;
   }
 }

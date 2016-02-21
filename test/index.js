@@ -1,5 +1,5 @@
 import Cycle from '@cycle/core';
-import { div, h1, pre, makeDOMDriver } from '@cycle/dom';
+import { div, h1, pre, ul, li, makeDOMDriver } from '@cycle/dom';
 import { Observable } from 'rx';
 
 import makeFirebaseDriver from '../src';
@@ -36,24 +36,32 @@ function main(sources) {
 
 
 
-  const click$ = DOM.select('pre').events('click');
-  const setBet$ = click$.map(() => {
-    console.log('click');
-    //return { action:['set', { no: `ian${Date.now()}` }], options: { ref: `/bets/ian${Date.now()}` }};
-    return [1,2,3];
+  const clickPre$ = DOM.select('pre').events('click');
+  const setBet1$ = clickPre$.map(() => {
+    return {
+      action: ['set', { no: `ian${Date.now()}` }],
+      ref: `/bets/ian${Date.now()}`
+    };
   });
 
-  /*
-  const setBet$ = Observable
-    .interval(1000)
-    .map(() => {
-      console.log('wtf');
-      return { action:['set', { no: `ian${Date.now()}` }], options: { ref: `/bets/ian${Date.now()}` }};
-    });
-  */
+  const clickH1$ = DOM.select('h1').events('click');
+  const setBet2_ = () => ({
+    action: ['set', { no: `wtfian${Date.now()}` }],
+    ref: `/bets2/ian`
+  });
+  const setBet2$ = clickH1$
+    .map(() => setBet2_())
+    .startWith(false);
 
 
-  //const firebase$ = Observable.merge(setBet$);
+  const firebase$ = Observable.merge(
+    setBet1$,
+    setBet2$
+  );
+
+
+  console.log('wtf homie');
+  console.log(firebase);
 
 
   const vtree$ = Observable.combineLatest(
@@ -61,8 +69,14 @@ function main(sources) {
     bets2$,
     bets3$,
     bets4$,
-    (bets1, bets2, bets3, bets4) => {
+    setBet2$,
+    (bets1, bets2, bets3, bets4, setBet2) => {
       return div([
+        h1('setBet2'),
+        ul(
+          setBet2 ? li(preme(setBet2)) : null
+        ),
+
         h1('bets1'),
         preme(bets1),
         h1('bets2'),
@@ -76,7 +90,7 @@ function main(sources) {
   );
 
   return {
-    firebase: setBet$,
+    firebase: firebase$,
     DOM: vtree$,
   };
 }
