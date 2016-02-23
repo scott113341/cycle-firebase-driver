@@ -1,108 +1,103 @@
-import Cycle from '@cycle/core';
-import { div, h1, pre, ul, li, makeDOMDriver } from '@cycle/dom';
 import { Observable } from 'rx';
+import Cycle from '@cycle/core';
+import { div, button, table, tr, th, td, makeDOMDriver } from '@cycle/dom';
+import { makeHTTPDriver } from '@cycle/http';
+import csjs from 'csjs-inject';
 
-import makeFirebaseDriver from '../src';
+
+const POST_URL = 'http://jsonplaceholder.typicode.com/posts';
+
+const styles = csjs`
+
+  .button {
+    margin-bottom: 10px;
+  }
+
+  .table {
+    border-collapse: collapse;
+    border-spacing: 10px;
+  }
+
+  .table th, .table td {
+    border: 1px solid black;
+  }
+
+`;
+
+function collate(stream) {
+  return stream
+    .scan((accumulator, current) => {
+      return accumulator.concat(current);
+    }, [])
+    .startWith([]);
+}
 
 
 function main(sources) {
-  const { DOM, firebase } = sources;
+  const { DOM, HTTP } = sources;
 
-  const bets1$ = firebase
-    .on('value')
-    .map(data => data.val())
-    .startWith({});
+  // stream of clicks on the .load button
+  console.log(styles.button);
+  const clickLoadButton$ = DOM.select(styles.button.selector).events('click');
 
-  const bets2$ = firebase
-    .on('value', { ref: '/bets2' })
-    .map(data => data.val())
-    .startWith({});
-
-  const bets3$ = firebase
-    .on('child_added', {
-      query: [
-        ['orderByChild', 'no'],
-        ['limitToFirst', 3],
-        //['startAt', 'r'],
-      ]
+  // stream of request objects for HTTP driver
+  const request$ = clickLoadButton$
+    .map(() => {
+      const postId = Math.ceil(Math.random() * 100);
+      return { url: `${POST_URL}/${postId}` };
     })
-    .scan((acc, data) => acc.concat({ [data.key()]: data.val() }), [])
-    .startWith([]);
+    .share();
 
-  const bets4$ = firebase
-    .once('value', { ref: '/bets2' })
-    .map(data => data.val())
-    .startWith({});
+  // accumulated array of request objects
+  const accRequests$ = collate(request$);
 
-
-
-  const clickPre$ = DOM.select('pre').events('click');
-  const setBet1$ = clickPre$.map(() => {
-    return {
-      action: ['set', { no: `ian${Date.now()}` }],
-      ref: `/bets/ian${Date.now()}`
-    };
-  });
-
-  const clickH1$ = DOM.select('h1').events('click');
-  const setBet2_ = () => ({
-    action: ['set', { no: `wtfian${Date.now()}` }],
-    ref: `/bets2/ian`
-  });
-  const setBet2$ = clickH1$
-    .map(() => setBet2_())
-    .startWith(false);
+  // accumulated array of response objects
+  const responses$ = HTTP.mergeAll();
+  const accResponses$ = collate(responses$);
 
 
-  const firebase$ = Observable.merge(
-    setBet1$,
-    setBet2$
-  );
-
-
-  console.log('wtf homie');
-  console.log(firebase);
-
-
+  // DOM sink
   const vtree$ = Observable.combineLatest(
-    bets1$,
-    bets2$,
-    bets3$,
-    bets4$,
-    setBet2$,
-    (bets1, bets2, bets3, bets4, setBet2) => {
-      return div([
-        h1('setBet2'),
-        ul(
-          setBet2 ? li(preme(setBet2)) : null
-        ),
+    accRequests$,
+    accResponses$,
+    (accRequests, accResponses) => {
 
-        h1('bets1'),
-        preme(bets1),
-        h1('bets2'),
-        preme(bets2),
-        h1('bets3'),
-        preme(bets3),
-        h1('bets4'),
-        preme(bets4),
+      // mapped
+      const reqResPairs = accRequests.map(request => {
+        const requestText = JSON.stringify(request);
+        const response = accResponses.find(res => res.request === request);
+        const responseText = response ? JSON.stringify(response.body) : 'loading....';
+        return [requestText, responseText];
+      });
+
+      return div([
+        button(styles.button, 'Load Next Post'),
+        table(styles.table, [
+          tr([
+            th('Request'),
+            th('Response'),
+          ]),
+          reqResPairs.map(([requestText, responseText]) => (
+            tr([
+              td(requestText),
+              td(responseText),
+            ])
+          )),
+        ])
       ]);
     }
   );
 
   return {
-    firebase: firebase$,
     DOM: vtree$,
+    HTTP: request$,
+    //log: request$,
   };
 }
 
 
 Cycle.run(main, {
-  firebase: makeFirebaseDriver('https://scratchie.firebaseio.com/bets'),
   DOM: makeDOMDriver('#app'),
+  HTTP: makeHTTPDriver(),
+  //log: m$ => m$.subscribe(m => console.log('log', m)),
 });
-
-
-
-function preme(obj) {
-  return pre(JSON.stringify(obj, null, 2));
-}

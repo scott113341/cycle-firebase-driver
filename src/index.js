@@ -24,18 +24,84 @@ export default function makeFirebaseDriver(firebaseUrl) {
 
 
   function isolateSink(action$, scope) {
+    console.log('isolateSink');
 
+    return action$.map(action => {
+      if (typeof action === `string`) {
+        return {url: action, _namespace: [scope]}
+      }
+      action._namespace = action._namespace || [];
+      action._namespace.push(scope);
+      return action
+    });
   }
 
   function isolateSource(response$$, scope) {
+    console.log('isolateSource');
+
     const isolatedResponse$$ = response$$.filter(res$ =>
       Array.isArray(res$.request._namespace) &&
       res$.request._namespace.indexOf(scope) !== -1
-    )
+    );
+    isolatedResponse$$.isolateSink = isolateSink;
+    isolatedResponse$$.isolateSource = isolateSource;
+    return isolatedResponse$$;
+  }
+
+  const callbackMethods = [
+    'set',
+  ];
+  function createResponse$(ref, action, args) {
+
+    console.log('createResponse$', ref, action, args);
+
+    return Observable.create(observer => {
+      const thisFirebase = getFirebase(ref);
+
+      try {
+        if (callbackMethods.indexOf(action) >= 0) {
+          console.log('action', action, 'is special!!!!');
+          console.log('doing callback magic');
+
+          const promise = thisFirebase[action].apply(action, args);
+          promise
+            .then(result => {
+              console.log('wtf this is done???????????????');
+              observer.onNext(result);
+              observer.onCompleted();
+            })
+            .catch(err => {
+              console.log('no diceeeeeeeee');
+              observer.onError(err);
+            })
+        }
+        else {
+          console.log('action', action, 'is NOT special');
+          observer.onNext(thisFirebase[action].apply(action, args));
+          observer.onCompleted();
+
+
+          // observer.onError(err)
+        }
+      }
+
+      catch (err) {
+        observer.onError(err);
+      }
+    })
   }
 
 
+
+
+
+
+
+
   return function firebaseDriver(action$) {
+
+    console.log('first time');
+    console.log(action$);
 
     const response$$ = action$
       .subscribe(actionConfig => {
