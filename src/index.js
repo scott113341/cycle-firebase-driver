@@ -55,20 +55,25 @@ export default function makeFirebaseDriver(firebaseUrl) {
         Promise
           .resolve()
           .then(getPromiseOrValue)
-          .then((...result) => {
+          .then(result => {
+            response.error = null;
             response.result = result;
             observer.onNext(response);
             observer.onCompleted();
           })
-          .catch((...error) => {
+          .catch(error => {
             response.error = error;
-            observer.onError(response);
+            response.result = null;
+            observer.onNext(response);
+            observer.onCompleted();
           });
       }
 
       catch (error) {
         response.error = error;
-        observer.onError(response);
+        response.result = null;
+        observer.onNext(response);
+        observer.onCompleted();
       }
     });
   }
@@ -131,11 +136,11 @@ export default function makeFirebaseDriver(firebaseUrl) {
           h => queryRef.on(eventType, h),
           h => queryRef.off(eventType, h)
         );
-      }
+      },
 
     };
 
-    Object.assign(response$$, queryMethods, { response$$ });
+    Object.assign(response$$, queryMethods, { response$$ }, { ServerValue: Firebase.ServerValue });
     return response$$;
   }
 }
