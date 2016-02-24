@@ -49,46 +49,64 @@ export default function makeFirebaseDriver(firebaseUrl) {
   }
 
   const callbackMethods = [
-    'set',
+    ['set', (args, thisFirebase) => {
+      const value = args[0];
+      return thisFirebase.set(value);
+    }],
   ];
-  function createResponse$(ref, action, args) {
+  function createResponse$(ref, action, args, actionConfig) {
 
-    console.log('createResponse$', ref, action, args);
+    console.log('createResponse$', ref, action, args, actionConfig);
 
-    return Observable.create(observer => {
+    const response$ = Observable.create(observer => {
       const thisFirebase = getFirebase(ref);
 
       try {
-        if (callbackMethods.indexOf(action) >= 0) {
+        const callbackMethod = callbackMethods.find(m => m[0] === action);
+        if (callbackMethod) {
           console.log('action', action, 'is special!!!!');
           console.log('doing callback magic');
 
-          const promise = thisFirebase[action].apply(action, args);
+          const promise = callbackMethod[1](args, thisFirebase);
+
           promise
-            .then(result => {
+            .then((...result) => {
               console.log('wtf this is done???????????????');
-              observer.onNext(result);
+              console.log(result);
+              const response = {
+                result,
+                request: actionConfig,
+              };
+              console.log(response);
+              observer.onNext(response);
               observer.onCompleted();
             })
-            .catch(err => {
+            .catch((...error) => {
               console.log('no diceeeeeeeee');
-              observer.onError(err);
+              console.log(error);
+              const response = {
+                error,
+                request: actionConfig,
+              };
+              console.log(response);
+              observer.onError(response);
             })
         }
         else {
           console.log('action', action, 'is NOT special');
-          observer.onNext(thisFirebase[action].apply(action, args));
+          const result = thisFirebase[action].apply(thisFirebase, args);
+          observer.onNext(result);
           observer.onCompleted();
-
-
-          // observer.onError(err)
         }
       }
 
       catch (err) {
         observer.onError(err);
       }
-    })
+    });
+
+    response$.request = '';
+    return response$;
   }
 
 
@@ -104,7 +122,7 @@ export default function makeFirebaseDriver(firebaseUrl) {
     console.log(action$);
 
     const response$$ = action$
-      .subscribe(actionConfig => {
+      .map(actionConfig => {
         if (!actionConfig) return;
 
         var action, args, ref;
@@ -122,8 +140,10 @@ export default function makeFirebaseDriver(firebaseUrl) {
           console.log('action', action, 'is special!!!!');
         }
 
-        thisFirebase[action].apply(thisFirebase, args);
+        return createResponse$(ref, action, args, actionConfig);
       });
+
+
 
     Object.assign(response$$, { isolateSink, isolateSource }, {
 
@@ -152,6 +172,7 @@ export default function makeFirebaseDriver(firebaseUrl) {
 
     });
 
+    response$$.response$$ = response$$;
     return response$$;
   }
 }

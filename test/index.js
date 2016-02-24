@@ -1,11 +1,9 @@
 import { Observable } from 'rx';
 import Cycle from '@cycle/core';
-import { div, button, table, tr, th, td, makeDOMDriver } from '@cycle/dom';
-import { makeHTTPDriver } from '@cycle/http';
+import { div, h1, button, table, tr, th, td, pre, makeDOMDriver } from '@cycle/dom';
+import makeFirebaseDriver from '../';
 import csjs from 'csjs-inject';
 
-
-const POST_URL = 'http://jsonplaceholder.typicode.com/posts';
 
 const styles = csjs`
 
@@ -32,72 +30,90 @@ function collate(stream) {
     .startWith([]);
 }
 
+function associate(accRequests$, accResponses$, propertyName) {
+  return Observable.combineLatest(
+    accRequests$,
+    accResponses$,
+    (accRequests, accResponses) => {
+      return accRequests.map(request => {
+        const response = accResponses.find(res => res[propertyName] === request);
+        console.log('response is ', response);
+        return [request, response];
+      });
+    }
+  );
+}
+
 
 function main(sources) {
-  const { DOM, HTTP } = sources;
+  const { DOM, firebase } = sources;
 
   // stream of clicks on the .load button
   console.log(styles.button);
   const clickLoadButton$ = DOM.select(styles.button.selector).events('click');
 
-  // stream of request objects for HTTP driver
+  // stream of request objects for firebase driver
   const request$ = clickLoadButton$
     .map(() => {
-      const postId = Math.ceil(Math.random() * 100);
-      return { url: `${POST_URL}/${postId}` };
+      const rand = Math.ceil(Math.random() * 100);
+      return {
+        ref: `/bets/wtf`,
+        action: ['set', { no: `money ${rand}` }],
+      };
     })
     .share();
 
-  // accumulated array of request objects
+  // accumulated$ of request/response/req-res objects
   const accRequests$ = collate(request$);
+  const accResponses$ = collate(firebase.response$$.mergeAll());
+  const accReqRes$ = associate(accRequests$, accResponses$, 'request');
 
-  // accumulated array of response objects
-  const responses$ = HTTP.mergeAll();
-  const accResponses$ = collate(responses$);
+  // stream of /bets
+  const bets$ = firebase
+    .on('value')
+    .map(betsDataSnapshot => betsDataSnapshot.val())
+    .startWith({});
 
 
   // DOM sink
   const vtree$ = Observable.combineLatest(
-    accRequests$,
-    accResponses$,
-    (accRequests, accResponses) => {
+    bets$,
+    accReqRes$,
+    (bets, accReqRes) => {
 
-      // mapped
-      const reqResPairs = accRequests.map(request => {
-        const requestText = JSON.stringify(request);
-        const response = accResponses.find(res => res.request === request);
-        const responseText = response ? JSON.stringify(response.body) : 'loading....';
-        return [requestText, responseText];
-      });
+      console.log('render');
+      console.log(accReqRes);
 
       return div([
-        button(styles.button, 'Load Next Post'),
+        h1('/bets'),
+        pre(JSON.stringify(bets, null, 2)),
+
+        h1('/bets/wtf Mutations'),
+        button(styles.button, 'Mutate /bets/wtf'),
         table(styles.table, [
           tr([
             th('Request'),
             th('Response'),
           ]),
-          reqResPairs.map(([requestText, responseText]) => (
+          accReqRes.map(([request, response]) => (
             tr([
-              td(requestText),
-              td(responseText),
+              td(JSON.stringify(request)),
+              td(JSON.stringify(response ? JSON.stringify(response.response) : 'loading...')),
             ])
           )),
-        ])
+        ]),
       ]);
     }
   );
 
   return {
     DOM: vtree$,
-    HTTP: request$,
-    //log: request$,
+    firebase: request$,
   };
 }
 
 
 Cycle.run(main, {
   DOM: makeDOMDriver('#app'),
-  HTTP: makeHTTPDriver(),
-  //log: m$ => m$.subscribe(m => console.log('log', m)),
+  firebase: makeFirebaseDriver('https://scratchie.firebaseio.com/bets'),
 });
