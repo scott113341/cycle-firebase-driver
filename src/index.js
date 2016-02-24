@@ -4,17 +4,34 @@ import Firebase from 'firebase';
 import * as check from './check';
 
 
+// firebase method implementations
+const callbackMethods = [
+  ['set', (thisFirebase, args) => {
+    const value = args[0];
+    return thisFirebase.set(value);
+  }],
+];
+
+
 export default function makeFirebaseDriver(firebaseUrl) {
   check.isString(firebaseUrl, 'Firebase URL is required.');
 
+
+  // define default firebase refs
   const firebaseRef = firebaseUrl;
   const firebaseRoot = (new Firebase(firebaseUrl)).root().toString().replace(/\/$/, '');
 
+
+  // function that returns a firebase ref
+  // returns this driver's default ref if unspecified
   function getFirebase(ref) {
     if (check.isString(ref)) return new Firebase(firebaseRoot + ref);
     else return new Firebase(firebaseRef);
   }
 
+
+  // function that builds and returns a firebase query object
+  // operations are applied left to right
   function getQuery(thisFirebase, query) {
     return query.reduce((previous, current) => {
       const [method, ...args] = current;
@@ -23,129 +40,60 @@ export default function makeFirebaseDriver(firebaseUrl) {
   }
 
 
-  function isolateSink(action$, scope) {
-    console.log('isolateSink');
-
-    return action$.map(action => {
-      if (typeof action === `string`) {
-        return {url: action, _namespace: [scope]}
-      }
-      action._namespace = action._namespace || [];
-      action._namespace.push(scope);
-      return action
-    });
-  }
-
-  function isolateSource(response$$, scope) {
-    console.log('isolateSource');
-
-    const isolatedResponse$$ = response$$.filter(res$ =>
-      Array.isArray(res$.request._namespace) &&
-      res$.request._namespace.indexOf(scope) !== -1
-    );
-    isolatedResponse$$.isolateSink = isolateSink;
-    isolatedResponse$$.isolateSource = isolateSource;
-    return isolatedResponse$$;
-  }
-
-  const callbackMethods = [
-    ['set', (args, thisFirebase) => {
-      const value = args[0];
-      return thisFirebase.set(value);
-    }],
-  ];
-  function createResponse$(ref, action, args, actionConfig) {
-
-    console.log('createResponse$', ref, action, args, actionConfig);
-
-    const response$ = Observable.create(observer => {
+  // function that creates a response$ for an incoming request
+  function createResponse$(ref, method, args, request) {
+    return Observable.create(observer => {
       const thisFirebase = getFirebase(ref);
+      const response = { request };
 
       try {
-        const callbackMethod = callbackMethods.find(m => m[0] === action);
-        if (callbackMethod) {
-          console.log('action', action, 'is special!!!!');
-          console.log('doing callback magic');
+        const callbackMethod = callbackMethods.find(m => m[0] === method);
+        const getPromise = () => callbackMethod[1](thisFirebase, args);
+        const getValue = () => thisFirebase[method].apply(thisFirebase, args);
+        const getPromiseOrValue = callbackMethod ? getPromise : getValue;
 
-          const promise = callbackMethod[1](args, thisFirebase);
-
-          promise
-            .then((...result) => {
-              console.log('wtf this is done???????????????');
-              console.log(result);
-              const response = {
-                result,
-                request: actionConfig,
-              };
-              console.log(response);
-              observer.onNext(response);
-              observer.onCompleted();
-            })
-            .catch((...error) => {
-              console.log('no diceeeeeeeee');
-              console.log(error);
-              const response = {
-                error,
-                request: actionConfig,
-              };
-              console.log(response);
-              observer.onError(response);
-            })
-        }
-        else {
-          console.log('action', action, 'is NOT special');
-          const result = thisFirebase[action].apply(thisFirebase, args);
-          observer.onNext(result);
-          observer.onCompleted();
-        }
+        Promise
+          .resolve()
+          .then(getPromiseOrValue)
+          .then((...result) => {
+            response.result = result;
+            observer.onNext(response);
+            observer.onCompleted();
+          })
+          .catch((...error) => {
+            response.error = error;
+            observer.onError(response);
+          });
       }
 
-      catch (err) {
-        observer.onError(err);
+      catch (error) {
+        response.error = error;
+        observer.onError(response);
       }
     });
-
-    response$.request = '';
-    return response$;
   }
 
 
+  // return driver function, which takes a request$
+  return function firebaseDriver(request$) {
 
+    const response$$ = request$
+      .map(request => {
+        if (!request) return;
 
-
-
-
-
-  return function firebaseDriver(action$) {
-
-    console.log('first time');
-    console.log(action$);
-
-    const response$$ = action$
-      .map(actionConfig => {
-        if (!actionConfig) return;
-
-        var action, args, ref;
-        if (Array.isArray(actionConfig)) {
-          [action, ...args] = actionConfig;
+        var method, args, ref;
+        if (Array.isArray(request)) {
+          [method, ...args] = request;
         }
         else {
-          ref = actionConfig.ref;
-          [action, ...args] = actionConfig.action;
+          ref = request.ref;
+          [method, ...args] = request.action;
         }
-        const thisFirebase = getFirebase(ref);
-        console.log('action$', ref, action + '()', ...args);
-
-        if (['set'].indexOf(action) >= 0) {
-          console.log('action', action, 'is special!!!!');
-        }
-
-        return createResponse$(ref, action, args, actionConfig);
+        return createResponse$(ref, method, args, request);
       });
 
 
-
-    Object.assign(response$$, { isolateSink, isolateSource }, {
+    const queryMethods = {
 
       onAuth: function() {
         const thisFirebase = getFirebase();
@@ -155,12 +103,27 @@ export default function makeFirebaseDriver(firebaseUrl) {
         );
       },
 
+      /**
+       * Firebase.once()
+       * https://www.firebase.com/docs/web/api/query/once.html
+       * @param eventType
+       * @param ref
+       * @param query
+       * @returns {*}
+       */
       once: function(eventType, { ref, query=[] }={}) {
         const thisFirebase = getFirebase(ref);
         const queryRef = getQuery(thisFirebase, query);
         return Observable.fromPromise(queryRef.once(eventType));
       },
 
+      /**
+       * Firebase.on()
+       * https://www.firebase.com/docs/web/api/query/on.html
+       * @param eventType
+       * @param ref
+       * @param query
+       */
       on: function(eventType, { ref, query=[] }={}) {
         const thisFirebase = getFirebase(ref);
         const queryRef = getQuery(thisFirebase, query);
@@ -170,9 +133,9 @@ export default function makeFirebaseDriver(firebaseUrl) {
         );
       }
 
-    });
+    };
 
-    response$$.response$$ = response$$;
+    Object.assign(response$$, queryMethods, { response$$ });
     return response$$;
   }
 }

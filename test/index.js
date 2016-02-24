@@ -37,7 +37,6 @@ function associate(accRequests$, accResponses$, propertyName) {
     (accRequests, accResponses) => {
       return accRequests.map(request => {
         const response = accResponses.find(res => res[propertyName] === request);
-        console.log('response is ', response);
         return [request, response];
       });
     }
@@ -49,7 +48,6 @@ function main(sources) {
   const { DOM, firebase } = sources;
 
   // stream of clicks on the .load button
-  console.log(styles.button);
   const clickLoadButton$ = DOM.select(styles.button.selector).events('click');
 
   // stream of request objects for firebase driver
@@ -80,10 +78,6 @@ function main(sources) {
     bets$,
     accReqRes$,
     (bets, accReqRes) => {
-
-      console.log('render');
-      console.log(accReqRes);
-
       return div([
         h1('/bets'),
         pre(JSON.stringify(bets, null, 2)),
@@ -98,7 +92,7 @@ function main(sources) {
           accReqRes.map(([request, response]) => (
             tr([
               td(JSON.stringify(request)),
-              td(JSON.stringify(response ? JSON.stringify(response.response) : 'loading...')),
+              td(JSON.stringify(response ? JSON.stringify(response.response) || String(response.response) : 'loading...')),
             ])
           )),
         ]),
