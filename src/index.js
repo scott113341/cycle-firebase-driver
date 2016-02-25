@@ -13,7 +13,7 @@ const callbackMethods = [
 ];
 
 
-export default function makeFirebaseDriver(firebaseUrl) {
+export function makeFirebaseDriver(firebaseUrl) {
   check.isString(firebaseUrl, 'Firebase URL is required.');
 
 
@@ -100,12 +100,37 @@ export default function makeFirebaseDriver(firebaseUrl) {
 
     const queryMethods = {
 
-      onAuth: function() {
+      /**
+       * Firebase.getAuth()
+       * https://www.firebase.com/docs/web/api/firebase/getauth.html
+       * @returns {*}
+       */
+      getAuth: () => {
+        const thisFirebase = getFirebase();
+        return Observable.just(thisFirebase.getAuth());
+      },
+
+      /**
+       * Firebase.onAuth()
+       * https://www.firebase.com/docs/web/api/firebase/onauth.html
+       * @returns {*}
+       */
+      onAuth: () => {
         const thisFirebase = getFirebase();
         return Observable.fromEventPattern(
           h => thisFirebase.onAuth(h),
           h => thisFirebase.offAuth(h)
         );
+      },
+
+      /**
+       * Firebase.unauth()
+       * https://www.firebase.com/docs/web/api/firebase/unauth.html
+       * @returns {*}
+       */
+      unauth: () => {
+        const thisFirebase = getFirebase();
+        return Observable.just(thisFirebase.unauth());
       },
 
       /**
@@ -116,7 +141,7 @@ export default function makeFirebaseDriver(firebaseUrl) {
        * @param query
        * @returns {*}
        */
-      once: function(eventType, { ref, query=[] }={}) {
+      once: (eventType, { ref, query=[] }={}) => {
         const thisFirebase = getFirebase(ref);
         const queryRef = getQuery(thisFirebase, query);
         return Observable.fromPromise(queryRef.once(eventType));
@@ -129,7 +154,7 @@ export default function makeFirebaseDriver(firebaseUrl) {
        * @param ref
        * @param query
        */
-      on: function(eventType, { ref, query=[] }={}) {
+      on: (eventType, { ref, query=[] }={}) => {
         const thisFirebase = getFirebase(ref);
         const queryRef = getQuery(thisFirebase, query);
         return Observable.fromEventPattern(
