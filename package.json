@@ -5,10 +5,10 @@
   "author": "",
   "main": "lib/index.js",
   "scripts": {
-    "clean": "rm -rf ./build/ && mkdir ./build/",
-    "build": "npm run clean && browserify ./test/index.js --debug -t babelify --outfile ./build/app.js",
-    "precompile-lib": "rm -rf ./lib/ && mkdir -p ./lib/",
-    "compile-lib": "babel -d ./lib/ ./src/",
+    "clean": "rm -rf build/ && mkdir build/",
+    "build": "npm run clean && browserify test/index.js --debug -t babelify --outfile build/app.js",
+    "precompile-lib": "rm -rf lib/ && mkdir -p lib/",
+    "compile-lib": "babel -d lib/ src/",
     "prepublish": "npm run compile-lib"
   },
   "browserify-shim": {
