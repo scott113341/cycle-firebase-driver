@@ -13,7 +13,6 @@ The following example shows how to:
 * Log those changes using `console.log()`
 
 ```javascript
-
 import Cycle from '@cycle/core';
 import { makeFirebaseDriver } from 'cycle-firebase-driver';
 
@@ -22,54 +21,15 @@ function main(sources) {
 
   const dinosaurs$ = firebase
     .on('value')
-    .map(dinosaursDataSnapshot => dinosaursDataSnapshot.val());
+    .map(data => console.log(data.val()))
+    .subscribe();
 
-  return {
-    log: dinosaurs$,
-  };
+  return {};
 }
 
 Cycle.run(main, {
-  firebase: makeFirebaseDriver('https://dinosaur-facts.firebaseio.com/dinosaurs'),
-  log: msg$ => msg$.subscribe(msg => console.log(msg)),
+  firebase: makeFirebaseDriver('https://dinosaur-facts.firebaseio.com/dinosaurs')
 });
 
-// console output:
-/*
-{
-  bruhathkayosaurus: {
-    appeared: -70000000,
-    height: 25,
-    length: 44,
-    order: saurischia,
-    vanished: -70000000,
-    weight: 135000
-  },
-  ...
-}
-*/
+// => Object {bruhathkayosaurus: Object, lambeosaurus: Object, linhenykus: Object...}
 ```
-
-
-
-### Firebase Methods
-#### new Firebase()
-#### onAuth()
-#### set()
-#### update()
-#### remove()
-#### push()
-
-
-### Query Methods
-#### on()
-#### once()
-#### orderByChild()
-#### orderByKey()
-#### orderByValue()
-#### orderByPriority()
-#### startAt()
-#### endAt()
-#### equalTo()
-#### limitToFirst()
-#### limitToLast()
