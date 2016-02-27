@@ -42,7 +42,7 @@ export function makeFirebaseDriver(firebaseUrl) {
 
   // function that creates a response$ for an incoming request
   function createResponse$(ref, method, args, request) {
-    return Observable.create(observer => {
+    const response$ = Observable.create(observer => {
       const thisFirebase = getFirebase(ref);
       const response = { request };
 
@@ -76,6 +76,8 @@ export function makeFirebaseDriver(firebaseUrl) {
         observer.onCompleted();
       }
     });
+    response$.subscribe();
+    return response$;
   }
 
 
