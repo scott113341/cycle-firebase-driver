@@ -76,8 +76,7 @@ export function makeFirebaseDriver(firebaseUrl) {
         observer.onCompleted();
       }
     });
-    response$.subscribe();
-    return response$;
+    return response$.share();
   }
 
 
