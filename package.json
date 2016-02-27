@@ -1,6 +1,6 @@
 {
   "name": "cycle-firebase-driver",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "A Cycle.js driver for Firebase.",
   "author": "",
   "main": "lib/index.js",
