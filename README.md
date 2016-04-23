@@ -1,7 +1,7 @@
 # cycle-firebase-driver
 
 
-## Firebase API v2.4.1
+## Firebase API v2.4.2
 
 
 ### Basic Example
