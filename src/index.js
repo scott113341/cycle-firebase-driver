@@ -1,4 +1,4 @@
-import { Observable } from 'rx';
+import xs from 'xstream';
 import Firebase from 'firebase';
 
 import * as check from './check';
@@ -108,7 +108,7 @@ export function makeFirebaseDriver(firebaseUrl) {
        */
       getAuth: () => {
         const thisFirebase = getFirebase();
-        return Observable.just(thisFirebase.getAuth());
+        return xs.of(thisFirebase.getAuth());
       },
 
       /**
@@ -131,7 +131,7 @@ export function makeFirebaseDriver(firebaseUrl) {
        */
       unauth: () => {
         const thisFirebase = getFirebase();
-        return Observable.just(thisFirebase.unauth());
+        return xs.of(thisFirebase.unauth());
       },
 
       /**
@@ -145,7 +145,7 @@ export function makeFirebaseDriver(firebaseUrl) {
       once: (eventType, { ref, query=[] }={}) => {
         const thisFirebase = getFirebase(ref);
         const queryRef = getQuery(thisFirebase, query);
-        return Observable.fromPromise(queryRef.once(eventType));
+        return xs.fromPromise(queryRef.once(eventType));
       },
 
       /**

@@ -1,20 +1,13 @@
-export function isString(string, message) {
-  var isString = typeof string === 'string';
-  return performCheck(isString, message);
-}
-
-export function isArray(array, message) {
-  var isArray = Array.isArray(array);
-  return performCheck(isArray, message);
-}
-
-export function isDefined(thing) {
-  return thing !== undefined;
-}
+import _isString from 'lodash.isstring';
 
 
-function performCheck(passed, message) {
+export function checkType(passed, message) {
   if (passed) return true;
   if (message) throw new Error(message);
   return false;
+}
+
+
+export function isString(string, message) {
+  return checkType(_isString(string), message);
 }
