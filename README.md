@@ -1,35 +1,24 @@
 # cycle-firebase-driver
 
+[![npm-version][npm-version-badge]][npm-version-href]
+[![build-status][build-status-badge]][build-status-href]
+[![dependencies][dependencies-badge]][dependencies-href]
+[![dev-dependencies][dev-dependencies-badge]][dev-dependencies-href]
 
-## Firebase API v2.4.2
+
+A [Firebase](https://firebase.google.com) driver for [Cycle.js](https://github.com/cyclejs/cyclejs).
+
+`npm install cycle-firebase-driver`
 
 
-### Basic Example
+[npm-version-badge]: https://img.shields.io/npm/v/cycle-firebase-driver.svg?style=flat-square
+[npm-version-href]: https://www.npmjs.com/package/cycle-firebase-driver
 
-The following example shows how to:
+[build-status-badge]: https://img.shields.io/travis/scott113341/cycle-firebase-driver/master.svg?style=flat-square
+[build-status-href]: https://travis-ci.org/scott113341/cycle-firebase-driver/branches
 
-* Create a Firebase driver for https://dinosaur-facts.firebaseio.com/dinosaurs using `makeFirebaseDriver()`
-* Subscribe to `value` changes
-* Log those changes using `console.log()`
+[dependencies-badge]: https://img.shields.io/david/scott113341/cycle-firebase-driver/master.svg?style=flat-square
+[dependencies-href]: https://david-dm.org/scott113341/cycle-firebase-driver/master#info=dependencies
 
-```javascript
-import Cycle from '@cycle/core';
-import { makeFirebaseDriver } from 'cycle-firebase-driver';
-
-function main(sources) {
-  const { firebase } = sources;
-
-  const dinosaurs$ = firebase
-    .on('value')
-    .map(data => console.log(data.val()))
-    .subscribe();
-
-  return {};
-}
-
-Cycle.run(main, {
-  firebase: makeFirebaseDriver('https://dinosaur-facts.firebaseio.com/dinosaurs')
-});
-
-// => Object {bruhathkayosaurus: Object, lambeosaurus: Object, linhenykus: Object...}
-```
+[dev-dependencies-badge]: https://img.shields.io/david/dev/scott113341/cycle-firebase-driver/master.svg?style=flat-square
+[dev-dependencies-href]: https://david-dm.org/scott113341/cycle-firebase-driver/master#info=devDependencies
