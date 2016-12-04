@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "build": "shx rm -rf lib/ && shx mkdir lib/ && babel --copy-files --source-maps --out-dir lib/ src/",
+    "ez-publish": "npm version prerelease && npm publish --tag next && git push origin dev --follow-tags",
     "lint": "semistandard --fix",
     "test": "npm run build && node lib/test/index.js"
   },
