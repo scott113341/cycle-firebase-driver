@@ -90,3 +90,40 @@ test('driver.on', t => {
   setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('meow'), 30);
   setTimeout(() => $.shamefullySendComplete(), 40);
 });
+
+test('driver.on multiple subs', t => {
+  t.plan(7);
+  const firebase$ = xs.create();
+  const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
+  const $ = driver$.on(REF + '/testOn');
+  let x = 0;
+  let y = 0;
+  $.addListener({
+    next: ss => {
+      x++;
+      if (x === 1) t.equal(ss.val(), 'val1', 'stream 1 correct value #1');
+      if (x === 2) t.equal(ss.val(), 'val2', 'stream 1 correct value #2');
+      if (x === 3) t.equal(ss.val(), 'val3', 'stream 1 correct value #3');
+    },
+    error: err => { throw err },
+    complete: () => {}
+  });
+  $.addListener({
+    next: ss => {
+      y++;
+      if (y === 1) t.equal(ss.val(), 'val1', 'stream 2 correct value #1');
+      if (y === 2) t.equal(ss.val(), 'val2', 'stream 2 correct value #2');
+      if (y === 3) t.equal(ss.val(), 'val3', 'stream 2 correct value #3');
+    },
+    error: err => { throw err },
+    complete: () => {
+      t.ok(true, 'stream completes');
+      driver$.app.delete();
+      t.end();
+    }
+  });
+  setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('val1'), 10);
+  setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('val2'), 20);
+  setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('val3'), 30);
+  setTimeout(() => $.shamefullySendComplete(), 40);
+});

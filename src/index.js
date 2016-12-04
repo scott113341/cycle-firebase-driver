@@ -11,8 +11,11 @@ import xs from 'xstream';
 export function makeFirebaseDriver(config) {
   assert(_.isObject(config), 'You must specify a valid Firebase configuration object.');
 
-  const app = firebase.initializeApp(config, `yolo${Date.now()}`);
+  const app = firebase.initializeApp(config);
+  const auth = app.auth();
   const db = app.database();
+
+  const onSubs = {};
 
   return (message$) => {
     message$.addListener({
@@ -28,14 +31,35 @@ export function makeFirebaseDriver(config) {
 
     return {
       app,
-      on: (refPath) => {
-        const $ = xs.create();
-        db.ref(refPath).on('value', ss => $.shamefullySendNext(ss));
-        return $;
+      firebase,
+
+      database: {
+        set: (refPath, value) => xs.fromPromise(db.ref(refPath).set(value))
       },
-      once: (refPath) => {
+
+      on: refPath => {
+        if (!onSubs[refPath]) {
+          const $ = xs.createWithMemory();
+          db.ref(refPath).on('value', ss => $.shamefullySendNext(ss));
+          onSubs[refPath] = $;
+        }
+        return onSubs[refPath];
+      },
+      once: refPath => {
         const promise = db.ref(refPath).once('value');
         return xs.fromPromise(promise);
+      },
+
+      auth: {
+        onAuthStateChanged: () => {
+          const $ = xs.create();
+          auth.onAuthStateChanged(user => {
+            $.shamefullySendNext(user);
+          });
+          return $;
+        },
+        signInWithPopup: provider => xs.fromPromise(auth.signInWithPopup(provider)),
+        signOut: () => xs.fromPromise(auth.signOut())
       }
     };
   };
