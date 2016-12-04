@@ -1,5 +1,5 @@
 import { ok as assert } from 'assert';
-import _ from 'lodash';
+import isObject from 'lodash/isObject';
 import firebase from 'firebase';
 import xs from 'xstream';
 
@@ -9,7 +9,7 @@ import xs from 'xstream';
  * @returns {function}
  */
 export function makeFirebaseDriver(config) {
-  assert(_.isObject(config), 'You must specify a valid Firebase configuration object.');
+  assert(isObject(config), 'You must specify a valid Firebase configuration object.');
 
   const app = firebase.initializeApp(config);
   const auth = app.auth();
@@ -34,20 +34,23 @@ export function makeFirebaseDriver(config) {
       firebase,
 
       database: {
+        on: refPath => {
+          if (!onSubs[refPath]) {
+            const $ = xs.createWithMemory();
+            db.ref(refPath).on('value', ss => $.shamefullySendNext(ss));
+            onSubs[refPath] = $;
+          }
+          return onSubs[refPath];
+        },
+        once: refPath => {
+          const promise = db.ref(refPath).once('value');
+          return xs.fromPromise(promise);
+        },
+        push: (refPath, value) => {
+          if (value !== undefined) return xs.fromPromise(db.ref(refPath).push(value));
+          else return xs.of(db.ref(refPath).push());
+        },
         set: (refPath, value) => xs.fromPromise(db.ref(refPath).set(value))
-      },
-
-      on: refPath => {
-        if (!onSubs[refPath]) {
-          const $ = xs.createWithMemory();
-          db.ref(refPath).on('value', ss => $.shamefullySendNext(ss));
-          onSubs[refPath] = $;
-        }
-        return onSubs[refPath];
-      },
-      once: refPath => {
-        const promise = db.ref(refPath).once('value');
-        return xs.fromPromise(promise);
       },
 
       auth: {

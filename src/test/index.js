@@ -53,7 +53,7 @@ test('driver.once', t => {
   t.plan(2);
   const firebase$ = xs.create();
   const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
-  const $ = driver$.once(REF + '/testOnce');
+  const $ = driver$.database.once(REF + '/testOnce');
   $.addListener({
     next: ss => t.equal(ss.val(), 'yee', 'correct value'),
     error: err => { throw err },
@@ -69,7 +69,7 @@ test('driver.on', t => {
   t.plan(4);
   const firebase$ = xs.create();
   const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
-  const $ = driver$.on(REF + '/testOn');
+  const $ = driver$.database.on(REF + '/testOn');
   let i = 0;
   $.addListener({
     next: ss => {
@@ -95,7 +95,7 @@ test('driver.on multiple subs', t => {
   t.plan(7);
   const firebase$ = xs.create();
   const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
-  const $ = driver$.on(REF + '/testOn');
+  const $ = driver$.database.on(REF + '/testOn');
   let x = 0;
   let y = 0;
   $.addListener({
@@ -126,4 +126,42 @@ test('driver.on multiple subs', t => {
   setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('val2'), 20);
   setTimeout(() => driver$.app.database().ref(REF + '/testOn').set('val3'), 30);
   setTimeout(() => $.shamefullySendComplete(), 40);
+});
+
+test('driver.push', t => {
+  t.plan(3);
+  const firebase$ = xs.create();
+  const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
+  const $ = driver$.database.push(REF + '/testPush', 'beans');
+  $.addListener({
+    next: ss => {
+      t.equal(typeof ss.key, 'string', 'emits a ref');
+      t.ok(ss.key.length > 5, 'emits a ref');
+    },
+    error: err => { throw err },
+    complete: () => {
+      t.ok(true, 'stream completes');
+      driver$.app.delete();
+      t.end();
+    }
+  });
+});
+
+test('driver.push nothing', t => {
+  t.plan(3);
+  const firebase$ = xs.create();
+  const driver$ = makeFirebaseDriver(CONFIG)(firebase$);
+  const $ = driver$.database.push(REF + '/testPush');
+  $.addListener({
+    next: ss => {
+      t.equal(typeof ss.key, 'string', 'emits a ref');
+      t.ok(ss.key.length > 5, 'emits a ref');
+    },
+    error: err => { throw err },
+    complete: () => {
+      t.ok(true, 'stream completes');
+      driver$.app.delete();
+      t.end();
+    }
+  });
 });
