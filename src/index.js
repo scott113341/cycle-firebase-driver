@@ -50,6 +50,9 @@ export function makeFirebaseDriver(config) {
           if (value !== undefined) return xs.fromPromise(db.ref(refPath).push(value));
           else return xs.of(db.ref(refPath).push());
         },
+        ref: (refPath) => {
+          return xs.of(db.ref(refPath));
+        },
         set: (refPath, value) => xs.fromPromise(db.ref(refPath).set(value))
       },
 
